@@ -1,0 +1,16 @@
+[
+{
+  "modid": "jedata",
+  "name": "Just Enough Data",
+  "description": "Help making modpacks.",
+  "version": "${version}",
+  "mcversion": "${mcversion}",
+  "url": "",
+  "updateUrl": "",
+  "authorList": ["Windmill_City"],
+  "credits": "",
+  "logoFile": "",
+  "screenshots": [],
+  "dependencies": []
+}
+]
