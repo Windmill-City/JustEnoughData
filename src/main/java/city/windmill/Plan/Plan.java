@@ -2,19 +2,17 @@ package city.windmill.Plan;
 
 import city.windmill.JustEnoughData;
 import com.feed_the_beast.ftblib.lib.data.ForgePlayer;
-import com.feed_the_beast.ftblib.lib.data.ForgeTeam;
 import com.feed_the_beast.ftblib.lib.data.Universe;
 import com.feed_the_beast.ftblib.lib.io.DataIn;
 import com.feed_the_beast.ftblib.lib.io.DataOut;
 import com.feed_the_beast.ftblib.lib.math.Ticks;
 import com.feed_the_beast.ftblib.lib.util.misc.EnumPrivacyLevel;
-import com.sun.istack.internal.NotNull;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.nbt.NBTBase;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.nbt.NBTTagList;
 
-import javax.annotation.Nullable;
+import javax.annotation.Nonnull;
 import java.io.File;
 import java.util.*;
 
@@ -40,7 +38,7 @@ public class Plan extends PlanObjectBase {
     }
     //endregion
     //region permission
-    public boolean canAccess(@NotNull EntityPlayer player, boolean readOnly){
+    public boolean canAccess(@Nonnull EntityPlayer player, boolean readOnly){
         //Universe should be loaded when calling this method
         ForgePlayer player1 = Universe.get().getPlayer(owner);
         ForgePlayer player2 = Universe.get().getPlayer(player);
@@ -61,7 +59,7 @@ public class Plan extends PlanObjectBase {
         return false;
     }
 
-    public boolean canEdit(@NotNull EntityPlayer player){
+    public boolean canEdit(@Nonnull EntityPlayer player){
         return !readOnly && canAccess(player, false);
     }
     //endregion
