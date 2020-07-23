@@ -16,6 +16,7 @@ import net.minecraft.nbt.NBTTagCompound;
 
 import javax.annotation.Nullable;
 import java.io.File;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
@@ -59,7 +60,7 @@ public class Resource extends PlanObject {
             deleteSelf();
     }
     //endregion
-    //region partial updates
+    //region ServerFile
     @Override
     public void writeNetData(DataOut data) {
         super.writeNetData(data);
@@ -141,8 +142,8 @@ public class Resource extends PlanObject {
     }
 
     @Override
-    public File getFile() {
-        return new File(getPlanFile().folder.getPath(), "Plans/" + getCodeString(getPlan().id) + "/" + getCodeString() + ".nbt");
+    public Path getFile() {
+        return getPlanFile().saveFolder.resolve("Plans/" + getCodeString(getPlan().id) + "/" + getCodeString() + ".nbt");
     }
     //endregion
     //region IPanelItem

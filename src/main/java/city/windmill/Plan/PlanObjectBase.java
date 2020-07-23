@@ -6,9 +6,10 @@ import com.feed_the_beast.ftblib.lib.io.DataIn;
 import com.feed_the_beast.ftblib.lib.io.DataOut;
 import com.feed_the_beast.ftblib.lib.util.IWithID;
 import net.minecraft.nbt.NBTTagCompound;
+import net.minecraftforge.common.MinecraftForge;
 
 import javax.annotation.Nullable;
-import java.io.File;
+import java.nio.file.Path;
 
 public abstract class PlanObjectBase implements IWithID {
     //region NeedToSave
@@ -55,17 +56,18 @@ public abstract class PlanObjectBase implements IWithID {
 
     public abstract PlanFile getPlanFile();
 
-    public void onCreated() {}
+    public void onCreated() {
+        id = getPlanFile().uniqueOrNewID(id);
+    }
 
     public void deleteSelf() {
         invalid = true;
-        getPlanFile().remove(id);
     }
 
     public void deleteChildren() {}
 
     @Nullable
-    public File getFile() {
+    public Path getFile() {
         return null;
     }
     //region SaveToFile
@@ -82,7 +84,7 @@ public abstract class PlanObjectBase implements IWithID {
         icon = Icon.getIcon(nbt.getString("Icon"));
     }
     //endregion
-    //region partial updates
+    //region ServerFile
     public void writeNetData(DataOut data) {
         int flags = 0;
         flags = Bits.setFlag(flags, 1, !name.isEmpty());

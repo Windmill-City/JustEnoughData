@@ -46,7 +46,7 @@ public abstract class PlanObject extends PlanObjectBase implements IPanelItem {
         height = nbt.getInteger("height");
     }
     //endregion
-    //region partial updates
+    //region ServerFile
     @Override
     public void writeNetData(DataOut data) {
         super.writeNetData(data);

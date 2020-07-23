@@ -14,7 +14,7 @@ public final class PlanObjectShape extends Icon implements IWithID {
     public static final PlanObjectShape WAVESQUARE = new PlanObjectShape("wavesquare");
     public static final PlanObjectShape CIRCLE = new PlanObjectShape("circle");
 
-    public static final NameMap<PlanObjectShape> NAME_MAP = NameMap.create(DEFAULT, new PlanObjectShape[]{DEFAULT, SQUARE, HORNSQUARE, WAVESQUARE, CIRCLE});
+    public static final NameMap<PlanObjectShape> NAME_MAP = NameMap.create(DEFAULT, DEFAULT, SQUARE, HORNSQUARE, WAVESQUARE, CIRCLE);
 
     public final String id;
     public final ImageIcon background;

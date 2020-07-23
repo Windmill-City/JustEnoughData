@@ -12,6 +12,7 @@ import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.*;
 
 import java.io.File;
+import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -54,7 +55,7 @@ public class Provider extends PlanObject {
                 list) {
             NBTTagCompound resData = (NBTTagCompound) nbt;
             int id = resData.getInteger("id");
-            PlanObjectBase base = getPlanFile().getBase(id);
+            PlanObjectBase base = getPlanFile().get(id);
             if(base instanceof Resource) {
                 int amount = resData.getInteger("amount");
                 Amount amount_;
@@ -91,7 +92,7 @@ public class Provider extends PlanObject {
         int size = dataIn.readVarInt();
         for (int i = 0; i < size; i++) {
             int id = dataIn.readVarInt();
-            PlanObjectBase base = getPlanFile().getBase(id);
+            PlanObjectBase base = getPlanFile().get(id);
             if(base instanceof Resource) {
                 int amount = dataIn.readVarInt();
                 Amount amount_;
@@ -158,7 +159,7 @@ public class Provider extends PlanObject {
             outputs = readFromNBT.apply(nbt.getTagList("outputs", 10));
     }
     //endregion
-    //region partial updates
+    //region ServerFile
     @Override
     public void writeNetData(DataOut data) {
         super.writeNetData(data);
@@ -178,7 +179,6 @@ public class Provider extends PlanObject {
         else
             provider = ItemStack.EMPTY;
         processTime = Ticks.get(data.readString());
-        clearOldData.get();
         inputs = readFromNet.apply(data);
         outputs = readFromNet.apply(data);
     }
@@ -217,8 +217,8 @@ public class Provider extends PlanObject {
     }
 
     @Override
-    public File getFile() {
-        return new File(getPlanFile().folder.getPath(), "Plans/" + getCodeString(getPlan().id) + "/" + getCodeString() + ".nbt");
+    public Path getFile() {
+        return getPlanFile().saveFolder.resolve("Plans/" + getCodeString(getPlan().id) + "/" + getCodeString() + ".nbt");
     }
     //endregion
     //region IPanelItem

@@ -12,7 +12,7 @@ public enum  PlanPermission implements IWithID {
 
     public static final NameMap<PlanPermission> NAME_MAP = NameMap.create(TEAM_R, values());
 
-    private String id;
+    private final String id;
     PlanPermission(String i){
         id = i;
     }

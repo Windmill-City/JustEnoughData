@@ -11,9 +11,11 @@ import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.nbt.NBTBase;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.nbt.NBTTagList;
+import net.minecraftforge.common.MinecraftForge;
 
 import javax.annotation.Nonnull;
 import java.io.File;
+import java.nio.file.Path;
 import java.util.*;
 
 public class Plan extends PlanObjectBase {
@@ -44,11 +46,11 @@ public class Plan extends PlanObjectBase {
         ForgePlayer player2 = Universe.get().getPlayer(player);
         switch (permission){
             case PUBLIC_R:
-                return player2.canInteract(player1, EnumPrivacyLevel.PUBLIC) && readOnly;
+                return player2.canInteract(player1, EnumPrivacyLevel.PUBLIC) && (readOnly || player2.canInteract(player1, EnumPrivacyLevel.PRIVATE));
             case PUBLIC_RW:
                 return player2.canInteract(player1, EnumPrivacyLevel.PUBLIC);
             case TEAM_R:
-                return player2.canInteract(player1, EnumPrivacyLevel.TEAM) && readOnly;
+                return player2.canInteract(player1, EnumPrivacyLevel.TEAM) && (readOnly || player2.canInteract(player1, EnumPrivacyLevel.PRIVATE));
             case TEAM_RW:
                 return player2.canInteract(player1, EnumPrivacyLevel.TEAM);
             case PRIVATE:
@@ -69,7 +71,8 @@ public class Plan extends PlanObjectBase {
     public void writeData(NBTTagCompound nbt) {
         super.writeData(nbt);
         nbt.setString("permission", permission.getId());
-        nbt.setString("owner", owner.toString());
+        if(owner != null)
+            nbt.setString("owner", owner.toString());
         nbt.setBoolean("readonly", readOnly);
         NBTTagList list = new NBTTagList();
         for (PlanObjectBase base :
@@ -86,7 +89,8 @@ public class Plan extends PlanObjectBase {
     public void readData(NBTTagCompound nbt) {
         super.readData(nbt);
         permission = PlanPermission.NAME_MAP.get(nbt.getString("permission"));
-        owner = UUID.fromString(nbt.getString("owner"));
+        if(nbt.hasKey("owner"))
+            owner = UUID.fromString(nbt.getString("owner"));
         readOnly = nbt.getBoolean("readonly");
 
         NBTTagList list = nbt.getTagList("items", 10);
@@ -95,17 +99,24 @@ public class Plan extends PlanObjectBase {
             NBTTagCompound data = (NBTTagCompound)nbtbase;
             int id = data.getInteger("id");
             PlanObjectType type = PlanObjectType.NAME_MAP.get(data.getString("type"));
-            try{
-                PlanObjectBase base = getPlanFile().create(type, this.id);
-                base.id = id;
-                items.add(base);
-            }catch (IllegalArgumentException e){
-                JustEnoughData.logger.error("Failed to load item:" + nbtbase.toString());
+            PlanObjectBase base = null;
+            switch (type){
+                case PROVIDER:
+                    base = new Provider(this);
+                    break;
+                case RESOURCE:
+                    base = new Resource(this);
+                    break;
+                default:
+                    JustEnoughData.logger.error("Failed to load item:" + id + "which type is:" + type.toString());
+                    continue;
             }
+            base.id = id;
+            items.add(base);
         }
     }
     //endregion
-    //region partial updates
+    //region ServerFile
     @Override
     public void writeNetData(DataOut data) {
         super.writeNetData(data);
@@ -128,12 +139,23 @@ public class Plan extends PlanObjectBase {
         owner = data.readUUID();
         readOnly = data.readBoolean();
 
-        items.clear();
-        for (int i = 0; i < data.readVarInt(); i++) {
+        int size = data.readVarInt();
+        for (int i = 0; i < size; i++) {
             int id = data.readInt();
             PlanObjectType type = PlanObjectType.NAME_MAP.read(data);
             //type should always valid
-            PlanObjectBase base = getPlanFile().create(type, this.id);
+            PlanObjectBase base = null;
+            switch (type){
+                case PROVIDER:
+                    base = new Provider(this);
+                    break;
+                case RESOURCE:
+                    base = new Resource(this);
+                    break;
+                default:
+                    JustEnoughData.logger.error("[Net]Failed to load item:" + id + "which type is:" + type.toString());
+                    continue;
+            }
             base.id = id;
             items.add(base);
         }
@@ -141,17 +163,31 @@ public class Plan extends PlanObjectBase {
     //endregion
     //endregion
     //region BaseMethods
+
+    @Override
+    public void onCreated() {
+        super.onCreated();
+        getPlanFile().plans.add(this);
+    }
+
     @Override
     public void deleteSelf() {
         deleteChildren();
         super.deleteSelf();
+        getPlanFile().plans.remove(this);
     }
 
     @Override
     public void deleteChildren() {
         for (PlanObjectBase base : items) {
-            base.deleteChildren();
-            base.deleteSelf();
+            ModifyEvent event;
+            event = new ModifyEvent(getPlanFile().target,
+                    EventBase.Source.Other_Local,
+                    base, ModifyEvent.ModifyType.Delete, (toModify) -> {
+                toModify.deleteSelf();
+                return toModify;
+            });
+            MinecraftForge.EVENT_BUS.post(event);
         }
         super.deleteChildren();
     }
@@ -172,8 +208,8 @@ public class Plan extends PlanObjectBase {
     }
 
     @Override
-    public File getFile() {
-        return new File(getPlanFile().folder.getPath(), "Plans/" + getCodeString(getPlan().id) + "/Plan.nbt");
+    public Path getFile() {
+        return getPlanFile().saveFolder.resolve("Plans/" + getCodeString(getPlan().id) + "/" + "Plan.nbt");
     }
     //endregion
 }

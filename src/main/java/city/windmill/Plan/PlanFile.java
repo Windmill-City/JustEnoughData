@@ -1,5 +1,7 @@
 package city.windmill.Plan;
 
+import city.windmill.CommonProxy;
+import city.windmill.JustEnoughData;
 import com.feed_the_beast.ftblib.lib.io.DataIn;
 import com.feed_the_beast.ftblib.lib.io.DataOut;
 import com.feed_the_beast.ftblib.lib.math.MathUtils;
@@ -7,9 +9,13 @@ import com.feed_the_beast.ftblib.lib.util.NBTUtils;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.nbt.NBTTagCompound;
+import net.minecraftforge.common.MinecraftForge;
+import net.minecraftforge.fml.common.eventhandler.Event;
 
 import javax.annotation.Nullable;
 import java.io.File;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
@@ -20,19 +26,62 @@ public abstract class PlanFile extends PlanObjectBase {
     public int version = FILE_VERSION;
     //endregion
     //region Init required
-    public final File folder;
     //endregion
     //region runtime
-    private final List<Plan> plans = new ArrayList<>();
+    public Path saveFolder = Paths.get("./PlanData/");
+    public final EventBase.Target target;
+    public final List<Plan> plans = new ArrayList<>();
     private final Int2ObjectOpenHashMap<PlanObjectBase> map = new Int2ObjectOpenHashMap<>();
+
+    protected PlanFile(EventBase.Target target) {
+        this.target = target;
+    }
     //endregion
 
-    public PlanFile(File folder) {
-        this.folder = folder;
+    public PlanObjectBase NewObjBase(PlanObjectType type, PlanObjectBase parent, NBTTagCompound extraNbt){
+        PlanObjectBase base;
+        switch (type){
+            case PLAN:
+                base = new Plan(this);
+                break;
+            case RESOURCE:
+                if(!(parent instanceof Plan) && !parent.invalid)
+                    throw new IllegalArgumentException("Parent Invalid:" + parent.id);
+                base = new Resource((Plan) parent);
+                break;
+            case PROVIDER:
+                if(!(parent instanceof Plan) && !parent.invalid)
+                    throw new IllegalArgumentException("Parent Invalid:" + parent.id);
+                base = new Provider((Plan) parent);
+                break;
+            default:
+                throw new IllegalArgumentException("Invalid type:" + type);
+        }
+        base.readData(extraNbt);
+        return base;
+    }
+
+    public void onModify(ModifyEvent event){
+        PlanObjectBase base = event.modifyAction.onModify(event.toModify);
+        switch (event.type){
+            case Create:
+                base.onCreated();
+                map.put(base.id, base);
+                event.setResult(Event.Result.ALLOW);
+                break;
+            case Update:
+                //just save
+                event.setResult(Event.Result.ALLOW);
+                break;
+            case Delete:
+                map.remove(base.id);
+                event.setResult(Event.Result.ALLOW);
+        }
+        event.ModifiedResult = base;
     }
 
     @Nullable
-    public final PlanObjectBase getBase(int id) {
+    public final PlanObjectBase get(int id) {
         if (id == 0)
         {
             return null;
@@ -46,56 +95,15 @@ public abstract class PlanFile extends PlanObjectBase {
         return object == null || object.invalid ? null : object;
     }
 
-    public final PlanObjectBase create(PlanObjectType type, int parent){
-        switch (type){
-            case PLAN:
-                return new Plan(this);
-            case PROVIDER:
-                PlanObjectBase p = getBase(parent);
-                if(p instanceof Plan){
-                    return new Provider((Plan) p);
-                }else{
-                    throw new IllegalArgumentException("Parent Plan Not Found:" + parent);
-                }
-            case RESOURCE:
-                PlanObjectBase p2 = getBase(parent);
-                if(p2 instanceof Plan){
-                    return new Resource((Plan) p2);
-                }else{
-                    throw new IllegalArgumentException("Parent Plan Not Found:" + parent);
-                }
-            default:
-                throw new IllegalArgumentException("Unknown type:" + type.getId());
-        }
+    public static boolean canAccess(PlanObjectBase base, @Nullable EntityPlayer player, boolean readOnly){
+        return base.getPlan() == null || base.getPlan().canAccess(player, readOnly);
     }
 
-    @Nullable
-    public final PlanObjectBase remove(int id){
-        PlanObjectBase base = map.remove(id);
-        return base;
+    public static boolean canEdit(PlanObjectBase base, @Nullable EntityPlayer player){
+        return base.getPlan() == null || base.getPlan().canEdit(player);
     }
 
-    public abstract boolean isClient();
-
-    public void removeObj(int id){
-        PlanObjectBase base = getBase(id);
-        if(base != null){
-            base.deleteChildren();
-            base.deleteSelf();
-            if(!isClient());
-            //todo:sent to all
-        }
-    }
-
-    public void updateObj(int id, DataIn data){
-        PlanObjectBase base = getBase(id);
-        if(base != null){
-            base.readNetData(data);
-            if(!isClient());
-            //todo:sent to all
-        }
-    }
-    //region load
+    //region save/load
     private NBTTagCompound createIndex(List<? extends PlanObjectBase> list) {
         int[] index = new int[list.size()];
 
@@ -108,66 +116,99 @@ public abstract class PlanFile extends PlanObjectBase {
         nbt.setIntArray("index", index);
         return nbt;
     }
-
     private int[] readIndex(NBTTagCompound nbt) {
         return nbt == null ? new int[0] : nbt.getIntArray("index");
     }
 
-    public void writeDataFull(File folder){
-        NBTTagCompound nbtPlanFile = createIndex(plans);
-        nbtPlanFile.setInteger("version", FILE_VERSION);
-        NBTUtils.writeNBTSafe(getFile(), nbtPlanFile);
-        for (Plan plan : plans) {
-            if(plan.invalid)
-                continue;
-            NBTTagCompound nbtPlan = new NBTTagCompound();
-            plan.writeData(nbtPlan);
-            NBTUtils.writeNBTSafe(plan.getFile(), nbtPlan);
-            for (PlanObjectBase base : plan.items) {
-                if(base.invalid)
-                    continue;
-                NBTTagCompound nbtBase = new NBTTagCompound();
-                base.writeData(nbtBase);
-                NBTUtils.writeNBTSafe(base.getFile(), nbtBase);
-            }
-        }
-    }
-
-    public void readDataFull(File folder){
-        NBTTagCompound nbtPlanFile = NBTUtils.readNBT(getFile());
-        version = nbtPlanFile == null ? FILE_VERSION : nbtPlanFile.getInteger("version");
-        plans.clear();
-        //todo: create backup when version not equal
-        for (int i : readIndex(nbtPlanFile)) {
-            Plan plan = new Plan(this);
-            plan.id = i;
-            plans.add(plan);
-            plan.readData(NBTUtils.readNBT(plan.getFile()));
-        }
-        refreshIdMap();
-        for (Plan plan : plans)
-        for (PlanObjectBase base : plan.items) {
-            base.readData(NBTUtils.readNBT(base.getFile()));
-        }
-    }
-
     /**
      * get plans for player with permission check (readonly)
-     * @param player null will write all plans
+     * @param player null will return all plans
      */
     public List<Plan> getPlanByPlayer(@Nullable EntityPlayer player) {
         List<Plan> result = new LinkedList<>();
         if(player == null)
             return plans;
         for (Plan plan : plans) {
-            if(plan.canAccess(player, true))
+            if (canAccess(plan, player, true))
                 result.add(plan);
         }
         return result;
     }
 
-    public void writeNetDataFull(DataOut data, @Nullable EntityPlayer player){
-        List<Plan> PlanList = getPlanByPlayer(player);
+    public void onLoad(FileEvent.Load event){
+        try {
+            NBTTagCompound nbtPlanFile = NBTUtils.readNBT(event.dir.resolve(getFile()).toFile());
+            version = nbtPlanFile == null ? FILE_VERSION : nbtPlanFile.getInteger("version");
+            plans.clear();
+            //todo: create backup when version not equal and try fix data
+            for (int i : readIndex(nbtPlanFile)) {
+                Plan plan = new Plan(this);
+                plan.id = i;
+                plans.add(plan);
+                NBTTagCompound nbt = NBTUtils.readNBT(event.dir.resolve(plan.getFile()).toFile());
+                if (nbt == null) {
+                    JustEnoughData.logger.error(String.format("Missing Plan data, id: %d", plan.id));
+                    plan.deleteSelf();
+                    continue;
+                }
+                try {
+                    plan.readData(nbt);
+                } catch (Exception e) {
+                    JustEnoughData.logger.error(String.format("Failed to read Plan data, id: %d", plan.id));
+                    JustEnoughData.logger.error(e);
+                    plan.deleteSelf();
+                }
+            }
+            refreshIdMap();
+            for (Plan plan : plans)
+                for (PlanObjectBase base : plan.items) {
+                    NBTTagCompound nbt = NBTUtils.readNBT(event.dir.resolve(base.getFile()).toFile());
+                    if (nbt == null) {
+                        JustEnoughData.logger.error(String.format("Missing item data, id: %d Plan: Name: %s --- id: %d", base.id, plan.name, plan.id));
+                        base.deleteSelf();
+                        map.remove(base.id);
+                        continue;
+                    }
+                    try {
+                        base.readData(nbt);
+                    } catch (Exception e) {
+                        JustEnoughData.logger.error(String.format("Failed to read item data, id: %d Plan: Name: %s --- id: %d", base.id, plan.name, plan.id));
+                        JustEnoughData.logger.error(e);
+                        base.deleteSelf();
+                        map.remove(base.id);
+                    }
+                }
+        }catch (Exception e){
+            JustEnoughData.logger.error(String.format("Failed to load PlanFile, dir:%s", event.dir));
+            JustEnoughData.logger.error(e);
+            plans.clear();
+            refreshIdMap();
+        }
+    }
+
+    public void onSave(FileEvent.Save event){
+        NBTTagCompound nbtPlanFile = createIndex(plans);
+        nbtPlanFile.setInteger("version", FILE_VERSION);
+        NBTUtils.writeNBTSafe(event.dir.resolve(getFile()).toFile(), nbtPlanFile);
+        for (Plan plan : plans) {
+            if(plan.invalid)
+                continue;
+            NBTTagCompound nbtPlan = new NBTTagCompound();
+            plan.writeData(nbtPlan);
+            NBTUtils.writeNBTSafe(event.dir.resolve(plan.getFile()).toFile(), nbtPlan);
+            for (PlanObjectBase base : plan.items) {
+                if(base.invalid)
+                    continue;
+                NBTTagCompound nbtBase = new NBTTagCompound();
+                base.writeData(nbtBase);
+                NBTUtils.writeNBTSafe(event.dir.resolve(base.getFile()).toFile(), nbtBase);
+            }
+        }
+    }
+
+    public void onSyncWrite(SyncEvent.Write event){
+        DataOut data = event.data;
+        List<Plan> PlanList = getPlanByPlayer(event.player);
         data.writeVarInt(PlanList.size());
         for (Plan plan : PlanList) {
             data.writeInt(plan.id);
@@ -180,9 +221,11 @@ public abstract class PlanFile extends PlanObjectBase {
         }
     }
 
-    public void readNetDataFull(DataIn data){
+    public void onSyncRead(SyncEvent.Read event){
+        DataIn data = event.data;
         plans.clear();
-        for (int i = 0; i < data.readVarInt(); i++) {
+        int size = data.readVarInt();
+        for (int i = 0; i < size; i++) {
             Plan plan = new Plan(this);
             plan.id = data.readInt();
             plans.add(plan);
@@ -208,11 +251,7 @@ public abstract class PlanFile extends PlanObjectBase {
         }
     }
 
-    public int newID() {
-        return checkOrNewID(0);
-    }
-
-    public int checkOrNewID(int id) {
+    public int uniqueOrNewID(int id) {
         while (id == 0 || id == 1 || map.get(id) != null)
         {
             id = MathUtils.RAND.nextInt();
@@ -222,6 +261,23 @@ public abstract class PlanFile extends PlanObjectBase {
     }
     //endregion
     //region BaseMethods
+
+    @Override
+    public void writeData(NBTTagCompound nbt) {
+    }
+
+    @Override
+    public void readData(NBTTagCompound nbt) {
+    }
+
+    @Override
+    public void writeNetData(DataOut data) {
+    }
+
+    @Override
+    public void readNetData(DataIn data) {
+    }
+
     @Override
     public PlanObjectType getObjectType() {
         return PlanObjectType.FILE;
@@ -234,8 +290,8 @@ public abstract class PlanFile extends PlanObjectBase {
 
     @Nullable
     @Override
-    public File getFile() {
-        return new File(getPlanFile().folder.getPath(), "PlanFile.nbt");
+    public Path getFile() {
+        return saveFolder.resolve("PlanFile.nbt");
     }
     //endregion
 }
