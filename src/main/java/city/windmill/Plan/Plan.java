@@ -1,6 +1,9 @@
 package city.windmill.Plan;
 
 import city.windmill.JustEnoughData;
+import city.windmill.net.DeleteObjBaseResponse;
+import city.windmill.net.JEIDataNetHandler;
+import city.windmill.net.SendFullPlanToClient;
 import com.feed_the_beast.ftblib.lib.data.ForgePlayer;
 import com.feed_the_beast.ftblib.lib.data.Universe;
 import com.feed_the_beast.ftblib.lib.io.DataIn;
@@ -8,16 +11,21 @@ import com.feed_the_beast.ftblib.lib.io.DataOut;
 import com.feed_the_beast.ftblib.lib.math.Ticks;
 import com.feed_the_beast.ftblib.lib.util.misc.EnumPrivacyLevel;
 import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.nbt.NBTBase;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.nbt.NBTTagList;
 import net.minecraftforge.common.MinecraftForge;
+import net.minecraftforge.fml.common.Mod;
+import net.minecraftforge.fml.common.eventhandler.Event;
+import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
+import net.minecraftforge.fml.relauncher.Side;
 
 import javax.annotation.Nonnull;
-import java.io.File;
 import java.nio.file.Path;
 import java.util.*;
 
+@Mod.EventBusSubscriber(modid = JustEnoughData.MODID, value = Side.SERVER)
 public class Plan extends PlanObjectBase {
     //region Init required
     public final PlanFile planFile;
@@ -40,6 +48,31 @@ public class Plan extends PlanObjectBase {
     }
     //endregion
     //region permission
+    public static class PlanPermissionChanged extends Event{
+        public final Plan plan;
+        public final PlanPermission from;
+        public final PlanPermission to;
+        public PlanPermissionChanged(Plan plan, PlanPermission from, PlanPermission to){
+            this.plan = plan;
+            this.from = from;
+            this.to = to;
+        }
+    }
+    @SubscribeEvent
+    public static void onPermissionChanged(PlanPermissionChanged event){
+        Plan dummy = new Plan(event.plan.getPlanFile());
+        dummy.owner = event.plan.owner;
+        dummy.permission = event.from;
+        Set<EntityPlayerMP> AccessiblesPrev = JEIDataNetHandler.getAccessiblePlayers(dummy);
+        Set<EntityPlayerMP> AccessiblesCur = JEIDataNetHandler.getAccessiblePlayers(event.plan);
+        Set<EntityPlayerMP> ShouldRemove = new HashSet<>(AccessiblesPrev);
+        ShouldRemove.removeAll(AccessiblesCur);
+        Set<EntityPlayerMP> ShouldSendFullPlan = new HashSet<>(AccessiblesCur);
+        ShouldSendFullPlan.removeAll(AccessiblesPrev);
+        new DeleteObjBaseResponse(event.plan.id).sendTo(ShouldRemove);
+        new SendFullPlanToClient(event.plan).sendTo(ShouldSendFullPlan);
+    }
+
     public boolean canAccess(@Nonnull EntityPlayer player, boolean readOnly){
         //Universe should be loaded when calling this method
         ForgePlayer player1 = Universe.get().getPlayer(owner);
@@ -60,7 +93,6 @@ public class Plan extends PlanObjectBase {
         }
         return false;
     }
-
     public boolean canEdit(@Nonnull EntityPlayer player){
         return !readOnly && canAccess(player, false);
     }
@@ -135,11 +167,24 @@ public class Plan extends PlanObjectBase {
     @Override
     public void readNetData(DataIn data) {
         super.readNetData(data);
-        permission = PlanPermission.NAME_MAP.read(data);
+        PlanPermission planPermission_new = PlanPermission.NAME_MAP.read(data);
+        if(planPermission_new != permission){
+            PlanPermissionChanged event = new PlanPermissionChanged(this, permission, planPermission_new);
+            permission = planPermission_new;
+            MinecraftForge.EVENT_BUS.post(event);
+        }
         owner = data.readUUID();
         readOnly = data.readBoolean();
 
+
         int size = data.readVarInt();
+        //Don't create new obj during update phrase
+        if(items.size() > 0){
+            if(size != items.size())
+                JustEnoughData.logger.warn(String.format("Plan data has been loaded, but data from network seems not the as same as local.\n" +
+                        "Network items.size() -> %d Local items.size() -> %d", size, items.size()));
+            return;
+        }
         for (int i = 0; i < size; i++) {
             int id = data.readInt();
             PlanObjectType type = PlanObjectType.NAME_MAP.read(data);

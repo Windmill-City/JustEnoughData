@@ -1,12 +1,17 @@
 package city.windmill.Plan;
 
+import city.windmill.JustEnoughData;
+import com.feed_the_beast.ftblib.lib.config.ConfigGroup;
+import com.feed_the_beast.ftblib.lib.gui.misc.GuiEditConfig;
 import com.feed_the_beast.ftblib.lib.icon.Icon;
 import com.feed_the_beast.ftblib.lib.io.Bits;
 import com.feed_the_beast.ftblib.lib.io.DataIn;
 import com.feed_the_beast.ftblib.lib.io.DataOut;
 import com.feed_the_beast.ftblib.lib.util.IWithID;
 import net.minecraft.nbt.NBTTagCompound;
-import net.minecraftforge.common.MinecraftForge;
+import net.minecraft.util.text.TextComponentTranslation;
+import net.minecraftforge.fml.relauncher.Side;
+import net.minecraftforge.fml.relauncher.SideOnly;
 
 import javax.annotation.Nullable;
 import java.nio.file.Path;
@@ -70,6 +75,26 @@ public abstract class PlanObjectBase implements IWithID {
     public Path getFile() {
         return null;
     }
+    //region Config
+    public ConfigGroup createSubGroup(ConfigGroup group)
+    {
+        return group.getGroup(getObjectType().getId());
+    }
+
+    @SideOnly(Side.CLIENT)
+    public void getConfig(ConfigGroup config)
+    {
+        config.addString("title", () -> name, v -> name = v, "").setDisplayName(new TextComponentTranslation("jeidata.title")).setOrder(-127);
+    }
+
+    @SideOnly(Side.CLIENT)
+    public void onEditButtonClicked()
+    {
+        ConfigGroup group = ConfigGroup.newGroup(JustEnoughData.MODID);
+        getConfig(createSubGroup(group));
+        new GuiEditConfig(group, null).openGui();//todo:config
+    }
+    //endregion
     //region SaveToFile
     public void writeData(NBTTagCompound nbt){
         if(!name.isEmpty())
@@ -84,7 +109,7 @@ public abstract class PlanObjectBase implements IWithID {
         icon = Icon.getIcon(nbt.getString("Icon"));
     }
     //endregion
-    //region ServerFile
+    //region SyncServerFile
     public void writeNetData(DataOut data) {
         int flags = 0;
         flags = Bits.setFlag(flags, 1, !name.isEmpty());

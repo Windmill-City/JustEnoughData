@@ -179,6 +179,8 @@ public class Provider extends PlanObject {
         else
             provider = ItemStack.EMPTY;
         processTime = Ticks.get(data.readString());
+        //Update data from server, should clear old data
+        clearOldData.get();
         inputs = readFromNet.apply(data);
         outputs = readFromNet.apply(data);
     }

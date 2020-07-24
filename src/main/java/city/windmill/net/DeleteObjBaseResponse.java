@@ -1,9 +1,7 @@
 package city.windmill.net;
 
 import city.windmill.ClientProxy;
-import city.windmill.JustEnoughData;
 import city.windmill.Plan.ModifyEvent;
-import city.windmill.util.NetHelper;
 import com.feed_the_beast.ftblib.lib.io.DataIn;
 import com.feed_the_beast.ftblib.lib.io.DataOut;
 import com.feed_the_beast.ftblib.lib.net.MessageToClient;

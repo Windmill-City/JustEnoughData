@@ -2,7 +2,6 @@ package city.windmill.net;
 
 import city.windmill.CommonProxy;
 import city.windmill.Plan.*;
-import city.windmill.util.NetHelper;
 import com.feed_the_beast.ftblib.lib.io.DataIn;
 import com.feed_the_beast.ftblib.lib.io.DataOut;
 import com.feed_the_beast.ftblib.lib.net.MessageToServer;
@@ -55,7 +54,7 @@ public class CreateObjBase extends MessageToServer {
             base = ((PlanFile)toModify).NewObjBase(type, parent, nbt);
             if(base instanceof Plan)
                 ((Plan)base).owner = player.getUniqueID();
-            new CreateObjBaseResponse(base).sendTo(NetHelper.getAccessiblePlayers(base));
+            new CreateObjBaseResponse(base).sendTo(JEIDataNetHandler.getAccessiblePlayers(base));
             return base;
         }, player));
     }

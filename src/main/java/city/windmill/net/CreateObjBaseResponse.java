@@ -2,12 +2,10 @@ package city.windmill.net;
 
 import city.windmill.ClientProxy;
 import city.windmill.CommonProxy;
-import city.windmill.JustEnoughData;
 import city.windmill.Plan.ModifyEvent;
 import city.windmill.Plan.PlanFile;
 import city.windmill.Plan.PlanObjectBase;
 import city.windmill.Plan.PlanObjectType;
-import city.windmill.util.NetHelper;
 import com.feed_the_beast.ftblib.lib.io.DataIn;
 import com.feed_the_beast.ftblib.lib.io.DataOut;
 import com.feed_the_beast.ftblib.lib.net.MessageToClient;
