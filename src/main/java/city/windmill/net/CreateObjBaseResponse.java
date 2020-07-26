@@ -2,6 +2,7 @@ package city.windmill.net;
 
 import city.windmill.ClientProxy;
 import city.windmill.CommonProxy;
+import city.windmill.JustEnoughData;
 import city.windmill.Plan.ModifyEvent;
 import city.windmill.Plan.PlanFile;
 import city.windmill.Plan.PlanObjectBase;
@@ -42,6 +43,7 @@ public class CreateObjBaseResponse extends MessageToClient {
         nbt = new NBTTagCompound();
         base.writeData(nbt);
         data.writeNBT(nbt);
+        JustEnoughData.logger.debug(String.format("Send Create Message to Client, Type: %s Id: %d Parent: %d", base.getObjectType(), base.id, base.getParentID()));
     }
 
     @Override
@@ -50,15 +52,19 @@ public class CreateObjBaseResponse extends MessageToClient {
         parent = data.readInt();
         id = data.readInt();
         nbt = data.readNBT();
+        JustEnoughData.logger.debug(String.format("Received Server Create Message, Type: %s Id: %d Parent: %d", type, id, parent));
     }
 
     @Override
     public void onMessage() {
-        PlanObjectBase parent = CommonProxy.localFile.get(this.parent);
+        PlanObjectBase parent = ClientProxy.remoteFile.get(this.parent);
         if(parent != null)
-            MinecraftForge.EVENT_BUS.post(new ModifyEvent.FromServer(ClientProxy.remoteFile, ModifyEvent.ModifyType.Create, (toModify) -> {
-                base = ((PlanFile)toModify).NewObjBase(type, parent, nbt);
+            MinecraftForge.EVENT_BUS.post(new ModifyEvent.FromServer(parent, ModifyEvent.ModifyType.Create, (toModify) -> {
+                base = toModify.getPlanFile().NewObjBase(type, parent, nbt);
+                base.id = id;
                 return base;
             }));
+        else
+            JustEnoughData.logger.warn(String.format("Server try create obj: Type: %s Id: %d Parent: %d , Parent not exist", type, id, this.parent));
     }
 }

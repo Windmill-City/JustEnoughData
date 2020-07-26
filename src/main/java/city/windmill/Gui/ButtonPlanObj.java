@@ -7,20 +7,10 @@ import com.feed_the_beast.ftblib.lib.gui.Theme;
 import com.feed_the_beast.ftblib.lib.util.misc.MouseButton;
 
 public class ButtonPlanObj extends Button {
-    private PlanObject planObj;
+    public PlanObject planObj;
     public ButtonPlanObj(Panel panel, PlanObject planObj) {
         super(panel);
         this.planObj = planObj;
-    }
-
-    @Override
-    public int getX() {
-        return parent.getX() + planObj.getX() - width / 2;
-    }
-
-    @Override
-    public int getY() {
-        return parent.getY() + planObj.getY() - height / 2;
     }
 
     @Override

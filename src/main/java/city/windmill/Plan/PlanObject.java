@@ -13,8 +13,8 @@ public abstract class PlanObject extends PlanObjectBase implements IPanelItem {
     protected PlanObjectShape shape;
     protected int x;
     protected int y;
-    protected int width;
-    protected int height;
+    protected int width = 16;
+    protected int height = 16;
 
     protected PlanObject(Plan plan) {
         this.plan = plan;

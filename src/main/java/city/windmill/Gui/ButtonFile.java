@@ -25,7 +25,7 @@ public class ButtonFile extends SimpleTextButton {
     @Override
     public void onClicked(MouseButton button) {
         boolean remote = panelPlan.guiPlan.getPlanFile().target.isRemote();
-        if(panelPlan.guiPlan.getPlanFile().target.isRemote() || ClientProxy.remoteFile.invalid || FMLClientHandler.instance().getClient().isIntegratedServerRunning()){
+        if(panelPlan.guiPlan.getPlanFile().target.isRemote() || ClientProxy.remoteFile.invalid){
             panelPlan.guiPlan.setPlanFile(CommonProxy.localFile);
         }else{
             panelPlan.guiPlan.setPlanFile(ClientProxy.remoteFile);

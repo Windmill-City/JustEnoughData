@@ -6,8 +6,10 @@ import city.windmill.net.CreateObjBase;
 import com.feed_the_beast.ftblib.lib.config.ConfigString;
 import com.feed_the_beast.ftblib.lib.gui.GuiHelper;
 import com.feed_the_beast.ftblib.lib.gui.Panel;
+import com.feed_the_beast.ftblib.lib.gui.Theme;
 import com.feed_the_beast.ftblib.lib.gui.WidgetLayout;
 import com.feed_the_beast.ftblib.lib.gui.misc.GuiEditConfigValue;
+import com.feed_the_beast.ftblib.lib.icon.Color4I;
 import com.feed_the_beast.ftblib.lib.util.misc.MouseButton;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.fml.client.FMLClientHandler;
@@ -50,6 +52,7 @@ public class PanelPlan extends Panel {
             }
         };
         FileBtn = new ButtonFile(this);
+        FileBtn.setWidth(width);
         setPosAndSize(0, 1, 40, 0);
         MinecraftForge.EVENT_BUS.register(this);
     }
@@ -60,10 +63,6 @@ public class PanelPlan extends Panel {
         alignWidgets();
     }
 
-    public void setFileBtnText(String text){
-        FileBtn.setTitle(text);
-    }
-
     private void updateFile(PlanFile file){
         widgets.clear();
         add(FileBtn);
@@ -72,6 +71,12 @@ public class PanelPlan extends Panel {
             add(new ButtonPlan(this, plan));
         }
         add(NewBtn);
+    }
+
+    @Override
+    public void draw(Theme theme, int x, int y, int w, int h) {
+        super.draw(theme, x, y, w, h);
+        GuiHelper.drawHollowRect(x, y, w, h, Color4I.GRAY, false);
     }
 
     @Override

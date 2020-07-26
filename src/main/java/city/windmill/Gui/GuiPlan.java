@@ -2,16 +2,15 @@ package city.windmill.Gui;
 
 import city.windmill.ClientProxy;
 import city.windmill.CommonProxy;
-import city.windmill.Plan.ModifyEvent;
-import city.windmill.Plan.Plan;
-import city.windmill.Plan.PlanFile;
-import city.windmill.Plan.SyncEvent;
+import city.windmill.JustEnoughData;
+import city.windmill.Plan.*;
 import com.feed_the_beast.ftblib.lib.gui.GuiBase;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.fml.common.eventhandler.Cancelable;
 import net.minecraftforge.fml.common.eventhandler.Event;
 import net.minecraftforge.fml.common.eventhandler.EventPriority;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
+import net.minecraftforge.fml.relauncher.Side;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -59,12 +58,15 @@ public class GuiPlan extends GuiBase {
 
     @SubscribeEvent(priority = EventPriority.LOW)
     public void onModified(ModifyEvent event){
-        if(event.getResult() == Event.Result.ALLOW){
+        if((event.target.isLocal() || event.isNetWork(Side.SERVER)) && event.getResult() == Event.Result.ALLOW){
             if(curFile == event.toModify)
                 setPlanFile(curFile);
             else if(event.ModifiedResult != null && curPlan == event.ModifiedResult.getPlan())
-                setPlan(curPlan);
+                setPlan(curPlan.invalid ? curFile.plans.isEmpty() ? null : curFile.plans.get(0) : curPlan);
         }
+        else if(event.source != EventBase.Source.GUI_FromClient)
+            JustEnoughData.logger.warn(String.format("Gui received ModifyEvent but ignored, Event: Target: %s Source: %s Result: %s",
+                    event.target, event.source, event.getResult()));
     }
 
     @Override
